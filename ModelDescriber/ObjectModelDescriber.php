@@ -20,6 +20,7 @@ use Nelmio\ApiDocBundle\ModelDescriber\Annotations\AnnotationsReader;
 use Nelmio\ApiDocBundle\OpenApiPhp\Util;
 use Nelmio\ApiDocBundle\PropertyDescriber\PropertyDescriberInterface;
 use OpenApi\Annotations as OA;
+use OpenApi\Generator;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
 use Symfony\Component\Serializer\Annotation\DiscriminatorMap;
@@ -71,8 +72,8 @@ class ObjectModelDescriber implements ModelDescriberInterface, ModelRegistryAwar
         $annotationsReader = new AnnotationsReader($this->doctrineReader, $this->modelRegistry, $this->mediaTypes);
         $annotationsReader->updateDefinition($reflClass, $schema);
 
-        $discriminatorMap = $this->doctrineReader->getClassAnnotation($reflClass, DiscriminatorMap::class);
-        if ($discriminatorMap && OA\UNDEFINED === $schema->discriminator) {
+        $discriminatorMap = $this->getAnnotation($reflClass, DiscriminatorMap::class);
+        if ($discriminatorMap && Generator::UNDEFINED === $schema->discriminator) {
             $this->applyOpenApiDiscriminator(
                 $model,
                 $schema,
@@ -114,7 +115,7 @@ class ObjectModelDescriber implements ModelDescriberInterface, ModelRegistryAwar
             }
 
             // If type manually defined
-            if (OA\UNDEFINED !== $property->type || OA\UNDEFINED !== $property->ref) {
+            if (Generator::UNDEFINED !== $property->type || Generator::UNDEFINED !== $property->ref) {
                 continue;
             }
 
@@ -180,6 +181,23 @@ class ObjectModelDescriber implements ModelDescriberInterface, ModelRegistryAwar
         }
 
         throw new \Exception(sprintf('Type "%s" is not supported in %s::$%s. You may use the `@OA\Property(type="")` annotation to specify it manually.', $types[0]->getBuiltinType(), $model->getType()->getClassName(), $propertyName));
+    }
+
+    /**
+     * @return mixed
+     */
+    private function getAnnotation(\ReflectionClass $reflection, string $className)
+    {
+        if (false === class_exists($className)) {
+            return null;
+        }
+        if (\PHP_VERSION_ID >= 80000) {
+            if (null !== $attribute = $reflection->getAttributes($className, \ReflectionAttribute::IS_INSTANCEOF)[0] ?? null) {
+                return $attribute->newInstance();
+            }
+        }
+
+        return $this->doctrineReader->getClassAnnotation($reflection, $className);
     }
 
     public function supports(Model $model): bool
