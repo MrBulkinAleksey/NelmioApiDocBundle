@@ -100,7 +100,7 @@ final class ModelRegistry
                 $this->api->getDefinitions()->set($name, $schema);
             }
             
-            if(++$i >= 2)
+            if(++$i >= 5)
             {
                 break;
             }
